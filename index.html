@@ -1,918 +1,314 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Void - MTG Tabletop</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        void: '#09090B', obsidian: '#121215', charcoal: '#1C1C21',
-                        steel: '#27272A', steelLight: '#3F3F46',
-                        electric: '#FACC15', amber: '#EAB308', amberDark: '#CA8A04',
-                        offwhite: '#F4F4F6', ash: '#A1A1AA'
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        display: ['Space Grotesk', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace']
-                    }
-                }
-            }
-        }
-    </script>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-    <!-- PeerJS -->
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-
-    <style>
-        :root { color-scheme: dark; }
-        body { background: #09090B; color: #F4F4F6; overflow: hidden; user-select: none; }
-        
-        /* Scrollbars */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #121215; }
-        ::-webkit-scrollbar-thumb { background: #27272A; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #FACC15; }
-
-        /* Custom Animations & States */
-        .card-element { transition: transform 0.15s ease-out, box-shadow 0.15s ease-out; }
-        .card-element.tapped { transform: rotate(90deg); opacity: 0.85; }
-        .card-element:hover:not(.tapped) { transform: translateY(-4px) scale(1.05); z-index: 50; }
-        .card-element.tapped:hover { transform: rotate(90deg) scale(1.05); z-index: 50; }
-        
-        .zone-drop-target { border: 2px dashed #FACC15 !important; background: rgba(250, 204, 21, 0.05); }
-        .hud-phase.active { color: #FACC15; text-shadow: 0 0 8px rgba(250, 204, 21, 0.4); font-weight: bold; }
-        
-        /* Draggable Ghost Image Override */
-        .drag-ghost { opacity: 0.01; position: absolute; top: -1000px; }
-        
-        /* Accessibility */
-        @media (prefers-reduced-motion: reduce) {
-            .card-element { transition: none !important; }
-        }
-        .focus-ring:focus-visible { outline: 2px solid #FACC15; outline-offset: 2px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Void Tabletop</title>
+<meta name="description" content="Play Magic: The Gathering online with friends — drag-and-drop tabletop, deck builder and lobby powered by Scryfall.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
-<body class="font-sans antialiased text-sm flex flex-col h-screen w-screen">
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
 
-    <!-- TOP NAVIGATION -->
-    <nav class="h-[56px] bg-obsidian border-b border-steel flex items-center justify-between px-4 shrink-0 z-50">
-        <div class="flex items-center gap-6 h-full">
-            <div class="font-display font-bold text-xl tracking-wider text-electric cursor-pointer">VOID<span class="text-offwhite">TABLETOP</span></div>
-            <div class="flex h-full gap-1" id="nav-tabs">
-                <button onclick="App.switchTab('tabletop')" id="tab-tabletop" class="px-4 font-display font-medium text-ash hover:text-offwhite border-b-2 border-transparent transition-colors">Tabletop</button>
-                <button onclick="App.switchTab('builder')" id="tab-builder" class="px-4 font-display font-medium text-ash hover:text-offwhite border-b-2 border-transparent transition-colors">Deck Builder</button>
-                <button onclick="App.switchTab('library')" id="tab-library" class="px-4 font-display font-medium text-ash hover:text-offwhite border-b-2 border-transparent transition-colors">Deck Library</button>
-                <button onclick="App.switchTab('lobby')" id="tab-lobby" class="px-4 font-display font-medium text-ash hover:text-offwhite border-b-2 border-transparent transition-colors">Lobby</button>
+<!-- ============ TOP BAR ============ -->
+<header class="topbar" role="banner">
+  <div class="brand" aria-label="Void Tabletop">
+    <span class="brand-mark" aria-hidden="true">◈</span>
+    <span class="brand-name">VOID<b>TABLETOP</b></span>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Main sections">
+    <button role="tab" class="tab" data-view="home"    aria-selected="true">Lobby</button>
+    <button role="tab" class="tab" data-view="builder" aria-selected="false">Deck Builder</button>
+    <button role="tab" class="tab" data-view="game"    aria-selected="false" id="tab-game" hidden>Table</button>
+  </nav>
+  <div class="topbar-right">
+    <span id="net-status" class="net-status" title="Connection status">Offline</span>
+    <button class="icon-btn" id="btn-shortcuts" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
+    <button class="icon-btn" id="btn-settings" title="Settings" aria-label="Settings">⚙</button>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+
+  <!-- ============ HOME / LOBBY ============ -->
+  <section id="view-home" class="view active" aria-label="Lobby">
+    <div class="home-wrap">
+      <div class="home-hero">
+        <h1>Gather your playgroup.</h1>
+        <p>Build a deck with every printing on Scryfall, open a room, share the code, and play on a live table: drag cards, right-click for everything, hold <kbd>W</kbd> to point.</p>
+      </div>
+
+      <div class="home-grid">
+        <!-- Profile -->
+        <section class="panel collapsible" data-collapse-key="home-profile">
+          <header class="panel-head"><h2>You</h2><button class="collapse-btn" aria-label="Collapse"></button></header>
+          <div class="panel-body">
+            <label class="field"><span>Display name</span><input id="profile-name" maxlength="24" autocomplete="nickname"></label>
+            <div class="field"><span>Player colour</span><div id="profile-colors" class="swatches" role="radiogroup" aria-label="Player colour"></div></div>
+            <label class="field"><span>Deck</span><select id="profile-deck"></select></label>
+            <div class="row gap">
+              <button class="btn ghost" id="btn-goto-builder">Open deck builder</button>
             </div>
+          </div>
+        </section>
+
+        <!-- Rooms -->
+        <section class="panel collapsible" data-collapse-key="home-rooms">
+          <header class="panel-head"><h2>Play</h2><button class="collapse-btn" aria-label="Collapse"></button></header>
+          <div class="panel-body">
+            <div id="room-idle">
+              <div class="play-cards">
+                <button class="play-card" id="btn-host"><b>Host a room</b><span>Get a code to share with friends</span></button>
+                <div class="play-card join">
+                  <b>Join a room</b>
+                  <div class="row gap"><input id="join-code" placeholder="CODE" maxlength="6" aria-label="Room code" autocomplete="off"><button class="btn primary" id="btn-join">Join</button></div>
+                </div>
+                <button class="play-card" id="btn-solo"><b>Solo / Goldfish</b><span>Practice a deck by yourself</span></button>
+              </div>
+            </div>
+
+            <div id="room-active" hidden>
+              <div class="room-code-row">
+                <div>
+                  <div class="muted small">Room code</div>
+                  <div class="room-code" id="room-code">------</div>
+                </div>
+                <div class="row gap">
+                  <button class="btn" id="btn-copy-code">Copy code</button>
+                  <button class="btn" id="btn-copy-link">Copy invite link</button>
+                  <button class="btn danger ghost" id="btn-leave">Leave</button>
+                </div>
+              </div>
+
+              <h3 class="sub">Players <span id="player-count" class="muted"></span></h3>
+              <ul id="lobby-players" class="lobby-players"></ul>
+
+              <div class="row gap wrap">
+                <button class="btn" id="btn-ready">Ready</button>
+                <button class="btn primary" id="btn-start" hidden>Start game</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Game settings -->
+        <section class="panel collapsible" data-collapse-key="home-gamesettings">
+          <header class="panel-head"><h2>Game settings</h2><button class="collapse-btn" aria-label="Collapse"></button></header>
+          <div class="panel-body" id="game-settings-form">
+            <div class="field"><span>Format</span><div id="mode-picker" class="mode-picker" role="radiogroup" aria-label="Game format"></div></div>
+            <p id="mode-desc" class="muted small"></p>
+            <details class="adv">
+              <summary>Advanced rules</summary>
+              <div class="grid2">
+                <label class="field"><span>Starting life</span><input type="number" id="gs-life" min="1" max="999"></label>
+                <label class="field"><span>Starting hand</span><input type="number" id="gs-hand" min="0" max="20"></label>
+                <label class="field"><span>Mulligan</span>
+                  <select id="gs-mulligan"><option value="london">London</option><option value="vancouver">Vancouver</option><option value="paris">Paris</option><option value="none">No mulligans</option></select></label>
+                <label class="field"><span>First player</span>
+                  <select id="gs-first"><option value="random">Random</option><option value="host">Host</option><option value="choose">Roll off (d20)</option></select></label>
+                <label class="field"><span>Commander damage lethal at</span><input type="number" id="gs-cmdlethal" min="1" max="99"></label>
+                <label class="field"><span>Poison lethal at</span><input type="number" id="gs-poison" min="1" max="99"></label>
+              </div>
+              <label class="check"><input type="checkbox" id="gs-freemull"> First mulligan is free (multiplayer)</label>
+              <label class="check"><input type="checkbox" id="gs-skipdraw"> Starting player skips first draw</label>
+              <label class="check"><input type="checkbox" id="gs-shuffle-seats"> Randomize seating</label>
+              <label class="check"><input type="checkbox" id="gs-turn-timer"> Turn timer (chess clock) <input type="number" id="gs-timer-min" min="1" max="120" class="inline-num" aria-label="Minutes per player"> min/player</label>
+              <label class="check"><input type="checkbox" id="gs-validate"> Enforce deck legality for format</label>
+            </details>
+            <p class="muted small" id="gs-host-note">Only the host can change these settings.</p>
+          </div>
+        </section>
+
+        <!-- Saved decks quick view -->
+        <section class="panel collapsible" data-collapse-key="home-decks">
+          <header class="panel-head"><h2>Your decks</h2><button class="collapse-btn" aria-label="Collapse"></button></header>
+          <div class="panel-body"><div id="home-decks" class="deck-tiles"></div></div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DECK BUILDER ============ -->
+  <section id="view-builder" class="view" aria-label="Deck builder">
+    <div class="builder">
+      <!-- Deck list sidebar -->
+      <aside class="b-side collapsible-side" id="b-side" aria-label="Saved decks">
+        <div class="side-head">
+          <h2>Decks</h2>
+          <button class="icon-btn" id="b-side-toggle" title="Collapse deck list" aria-label="Collapse deck list">⟨</button>
         </div>
-        <div class="flex items-center gap-3">
-            <div id="active-deck-badge" class="hidden px-3 py-1 bg-charcoal rounded border border-steel text-xs font-mono text-electric">No Deck Selected</div>
-            <button onclick="AudioSys.toggleMute()" class="p-2 text-ash hover:text-electric transition-colors" title="Toggle Audio"><span id="audio-icon">🔊</span></button>
-            <button onclick="UI.toggleSettings()" class="p-2 text-ash hover:text-electric transition-colors" title="Settings">⚙️</button>
+        <div class="side-body">
+          <div class="row gap"><button class="btn primary grow" id="b-new">+ New deck</button><button class="btn" id="b-import" title="Import a deck list">Import</button></div>
+          <input id="b-deck-filter" placeholder="Filter decks…" aria-label="Filter decks">
+          <ul id="b-decks" class="b-decks"></ul>
         </div>
-    </nav>
+      </aside>
 
-    <!-- MAIN VIEWPORT -->
-    <main id="viewport" class="flex-1 relative overflow-hidden bg-void">
-        
-        <!-- TAB 1: TABLETOP -->
-        <div id="view-tabletop" class="hidden w-full h-full flex flex-col relative">
-            
-            <!-- Opponent Area (Top) -->
-            <div class="flex-1 border-b border-steel flex relative bg-void">
-                <!-- Zones / Graveyard -->
-                <div class="w-32 bg-obsidian border-r border-steel p-2 flex flex-col gap-2 justify-end opacity-70 pointer-events-none">
-                    <div class="text-xs text-ash font-mono text-center mb-1">OPPONENT</div>
-                    <div class="h-24 bg-charcoal rounded border border-steel flex items-center justify-center text-ash text-xs">Exile</div>
-                    <div class="h-24 bg-charcoal rounded border border-steel flex items-center justify-center text-ash text-xs">Grave</div>
-                    <div class="h-24 bg-charcoal rounded border border-steel flex items-center justify-center text-ash text-xs">Library</div>
-                </div>
-                <!-- Playmat -->
-                <div class="flex-1 flex flex-col">
-                    <div class="h-1/2 p-4 flex gap-2 items-center flex-wrap" id="opp-nonlands"></div>
-                    <div class="h-1/2 p-4 flex gap-2 items-center flex-wrap border-t border-steel/50" id="opp-lands"></div>
-                </div>
-                <!-- Opp HUD -->
-                <div class="w-24 bg-obsidian border-l border-steel flex flex-col items-center justify-center">
-                    <div class="text-3xl font-mono text-offwhite" id="opp-life">20</div>
-                    <div class="text-xs text-ash">LIFE</div>
-                </div>
-            </div>
-
-            <!-- Center Phase / Control HUD -->
-            <div class="h-12 bg-charcoal border-b border-steel flex items-center justify-between px-4 z-10 shadow-lg">
-                <div class="flex gap-4 items-center text-xs font-mono text-ash" id="phase-bar">
-                    <span class="hud-phase" data-phase="untap">UNTAP</span>
-                    <span class="hud-phase" data-phase="upkeep">UPKEEP</span>
-                    <span class="hud-phase" data-phase="draw">DRAW</span>
-                    <span class="hud-phase" data-phase="main1">MAIN 1</span>
-                    <span class="hud-phase" data-phase="combat">COMBAT</span>
-                    <span class="hud-phase" data-phase="main2">MAIN 2</span>
-                    <span class="hud-phase" data-phase="end">END</span>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button onclick="Game.undo()" class="px-3 py-1 bg-obsidian hover:bg-steel border border-steel rounded text-xs">Undo (Ctrl+Z)</button>
-                    <button onclick="Game.mulligan()" class="px-3 py-1 bg-obsidian hover:bg-steel border border-steel rounded text-xs">Mulligan</button>
-                    <button onclick="Game.nextPhase()" class="px-6 py-1.5 bg-electric text-void font-bold rounded shadow hover:bg-amber transition-colors">NEXT PHASE / PASS</button>
-                </div>
-            </div>
-
-            <!-- Player Area (Bottom) -->
-            <div class="flex-1 flex relative bg-void">
-                <!-- Zones / HUD -->
-                <div class="w-32 bg-obsidian border-r border-steel flex flex-col">
-                    <div class="p-2 border-b border-steel text-center">
-                        <div class="text-3xl font-mono text-electric" id="player-life">20</div>
-                        <div class="text-xs text-ash flex justify-center gap-2 mt-1">
-                            <button class="hover:text-offwhite" onclick="Game.updateLife(-1)">-1</button>
-                            <button class="hover:text-offwhite" onclick="Game.updateLife(1)">+1</button>
-                        </div>
-                    </div>
-                    <div class="flex-1 p-2 flex flex-col gap-2 relative">
-                        <div class="w-full aspect-[2.5/3.5] bg-charcoal rounded border border-steel flex items-center justify-center text-ash text-xs relative cursor-pointer hover:border-electric transition-colors" 
-                             ondragover="DnD.allowDrop(event)" ondrop="DnD.drop(event, 'library')" onclick="Game.drawCard()" title="Click to Draw">
-                             <span id="deck-count" class="absolute bottom-1 right-2 text-[10px]">0</span> Library
-                        </div>
-                        <div class="w-full aspect-[2.5/3.5] bg-charcoal rounded border border-steel flex items-center justify-center text-ash text-xs relative" 
-                             ondragover="DnD.allowDrop(event)" ondrop="DnD.drop(event, 'graveyard')">
-                             <span id="grave-count" class="absolute bottom-1 right-2 text-[10px]">0</span> Grave
-                        </div>
-                        <div class="w-full aspect-[2.5/3.5] bg-charcoal rounded border border-steel flex items-center justify-center text-ash text-xs relative"
-                             ondragover="DnD.allowDrop(event)" ondrop="DnD.drop(event, 'exile')">Exile</div>
-                    </div>
-                </div>
-
-                <!-- Playmat -->
-                <div class="flex-1 flex flex-col h-full relative" ondragover="DnD.allowDrop(event)" ondrop="DnD.drop(event, 'battlefield')">
-                    <!-- Non-lands -->
-                    <div class="flex-1 p-4 flex gap-2 items-center flex-wrap content-start" id="player-nonlands"></div>
-                    <!-- Lands -->
-                    <div class="flex-1 p-4 flex gap-2 items-center flex-wrap content-start border-t border-steel/50" id="player-lands"></div>
-                    
-                    <!-- Fanned Hand Dock -->
-                    <div class="absolute bottom-0 left-0 w-full h-32 flex justify-center items-end pb-2 pointer-events-none z-40" id="player-hand"
-                         ondragover="DnD.allowDrop(event)" ondrop="DnD.drop(event, 'hand')">
-                        <!-- Hand cards injected here -->
-                    </div>
-                </div>
-            </div>
-            
+      <!-- Search -->
+      <section class="b-search" aria-label="Card search">
+        <form id="b-search-form" class="b-search-bar" role="search">
+          <input id="b-q" placeholder="Search Scryfall… e.g. t:dragon c:r cmc<=4" autocomplete="off" aria-label="Search cards">
+          <button class="btn primary" type="submit">Search</button>
+          <button class="btn ghost" type="button" id="b-filters-toggle" aria-expanded="false">Filters</button>
+        </form>
+        <div id="b-ac" class="autocomplete" role="listbox" hidden></div>
+        <div id="b-filters" class="b-filters" hidden>
+          <div class="filter-group"><span>Colours</span><div id="f-colors" class="color-toggles"></div>
+            <select id="f-colormode" aria-label="Colour match"><option value="c">including</option><option value="c=">exactly</option><option value="id<=">within identity</option></select></div>
+          <div class="filter-group"><span>Type</span><select id="f-type"><option value="">Any</option><option>creature</option><option>instant</option><option>sorcery</option><option>artifact</option><option>enchantment</option><option>planeswalker</option><option>land</option><option>battle</option><option>legendary</option><option>token</option></select></div>
+          <div class="filter-group"><span>Legal in</span><select id="f-format"><option value="">Any</option><option>standard</option><option>pioneer</option><option>modern</option><option>legacy</option><option>vintage</option><option>pauper</option><option>commander</option><option>brawl</option><option>historic</option><option>timeless</option></select></div>
+          <div class="filter-group"><span>Mana value</span><select id="f-cmcop"><option value="">Any</option><option value="=">=</option><option value="<=">≤</option><option value=">=">≥</option></select><input type="number" id="f-cmc" min="0" max="20" class="inline-num" aria-label="Mana value"></div>
+          <div class="filter-group"><span>Rarity</span><select id="f-rarity"><option value="">Any</option><option>common</option><option>uncommon</option><option>rare</option><option>mythic</option></select></div>
+          <div class="filter-group"><span>Sort</span><select id="f-order"><option value="name">Name</option><option value="cmc">Mana value</option><option value="edhrec">EDHREC rank</option><option value="released">Release date</option><option value="usd">Price</option><option value="power">Power</option><option value="color">Colour</option></select>
+            <select id="f-dir" aria-label="Sort direction"><option value="auto">auto</option><option value="asc">asc</option><option value="desc">desc</option></select></div>
+          <label class="check small"><input type="checkbox" id="f-ci-deck"> Only cards in this deck's commander identity</label>
         </div>
-
-        <!-- TAB 2: DECK BUILDER -->
-        <div id="view-builder" class="hidden w-full h-full flex">
-            <!-- Search sidebar -->
-            <div class="w-[30%] h-full border-r border-steel bg-obsidian flex flex-col">
-                <div class="p-4 border-b border-steel">
-                    <input type="text" id="card-search" placeholder="Search Scryfall... (name, t:creature, c:r)" class="w-full bg-void border border-steel p-2 text-sm rounded focus:border-electric outline-none focus:ring-1 focus:ring-electric transition-colors">
-                </div>
-                <div id="search-results" class="flex-1 overflow-y-auto p-2 grid grid-cols-2 gap-2 content-start"></div>
-            </div>
-            <!-- Deck List -->
-            <div class="flex-1 h-full bg-void flex flex-col">
-                <div class="p-4 border-b border-steel bg-charcoal flex justify-between items-center">
-                    <div class="flex items-center gap-4">
-                        <input type="text" id="deck-name-input" placeholder="Deck Name" class="bg-void border border-steel px-3 py-1.5 rounded text-offwhite focus:border-electric outline-none">
-                        <div class="text-xs text-ash" id="deck-stats">0 Cards</div>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="Builder.openImportModal()" class="px-4 py-1.5 bg-obsidian hover:bg-steel border border-steel rounded text-xs transition-colors">Import/Export</button>
-                        <button onclick="Builder.saveDeck()" class="px-4 py-1.5 bg-electric text-void font-bold rounded shadow hover:bg-amber transition-colors">Save Deck</button>
-                    </div>
-                </div>
-                <div class="flex-1 overflow-y-auto p-6" id="decklist-container">
-                    <div id="decklist-main" class="columns-1 md:columns-2 lg:columns-3 gap-6"></div>
-                </div>
-            </div>
+        <div class="b-results-head">
+          <span id="b-result-count" class="muted small">Search for cards to add them to your deck.</span>
+          <div class="seg" role="group" aria-label="Result size">
+            <button class="seg-btn" data-rsize="s" aria-label="Small results">S</button><button class="seg-btn active" data-rsize="m" aria-label="Medium results">M</button><button class="seg-btn" data-rsize="l" aria-label="Large results">L</button>
+          </div>
         </div>
+        <div id="b-results" class="b-results size-m" aria-live="polite"></div>
+        <div class="row center"><button class="btn" id="b-more" hidden>Load more</button></div>
+      </section>
 
-        <!-- TAB 3: DECK LIBRARY -->
-        <div id="view-library" class="hidden w-full h-full p-8 overflow-y-auto bg-void">
-            <div class="max-w-6xl mx-auto">
-                <div class="flex justify-between items-end mb-8">
-                    <div>
-                        <h1 class="text-3xl font-display font-bold text-offwhite">Deck Library</h1>
-                        <p class="text-ash mt-1">Saved locally to your browser.</p>
-                    </div>
-                    <div class="flex gap-2">
-                        <button class="px-3 py-1 bg-obsidian border border-steel rounded text-xs text-ash hover:text-offwhite">Backup (JSON)</button>
-                        <button class="px-3 py-1 bg-obsidian border border-steel rounded text-xs text-ash hover:text-offwhite">Restore</button>
-                    </div>
-                </div>
-                <div id="library-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    <!-- Decks populated here -->
-                </div>
+      <!-- Deck -->
+      <section class="b-deck" aria-label="Current deck">
+        <div class="b-deck-head">
+          <input id="b-deck-name" class="deck-name-input" aria-label="Deck name" placeholder="Untitled deck">
+          <div class="row gap wrap">
+            <select id="b-deck-format" aria-label="Deck format"></select>
+            <div class="seg" role="group" aria-label="Deck view">
+              <button class="seg-btn active" data-dview="list">List</button><button class="seg-btn" data-dview="visual">Visual</button>
             </div>
-        </div>
-
-        <!-- TAB 4: LOBBY -->
-        <div id="view-lobby" class="hidden w-full h-full flex items-center justify-center bg-void bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-charcoal to-void">
-            <div class="w-full max-w-2xl bg-obsidian border border-steel rounded-lg shadow-2xl p-8 flex flex-col gap-6">
-                <div class="text-center">
-                    <h2 class="text-2xl font-display font-bold text-electric">MULTIPLAYER LOBBY</h2>
-                    <p class="text-ash text-sm">Connect directly via WebRTC or play locally.</p>
-                </div>
-                
-                <div class="grid grid-cols-2 gap-6 border-y border-steel py-6">
-                    <!-- Player Config -->
-                    <div class="flex flex-col gap-4 border-r border-steel pr-6">
-                        <label class="text-xs text-ash font-mono uppercase">Your Name</label>
-                        <input type="text" id="player-name" value="Player 1" class="w-full bg-void border border-steel p-2 rounded focus:border-electric outline-none">
-                        
-                        <label class="text-xs text-ash font-mono uppercase mt-2">Select Deck</label>
-                        <select id="lobby-deck-select" class="w-full bg-void border border-steel p-2 rounded outline-none focus:border-electric text-sm"></select>
-                        
-                        <div class="mt-4 p-3 bg-charcoal border border-steel rounded flex justify-between items-center">
-                            <span class="text-sm font-medium">Ready Status</span>
-                            <button id="btn-ready" onclick="Lobby.toggleReady()" class="w-16 h-8 rounded-full bg-void border border-steel flex items-center p-1 transition-colors">
-                                <div class="w-6 h-6 rounded-full bg-steel transition-transform" id="ready-knob"></div>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Network Config -->
-                    <div class="flex flex-col gap-4 pl-2">
-                        <div class="flex items-center justify-between">
-                            <label class="text-xs text-ash font-mono uppercase">Room Code</label>
-                            <span class="text-xs text-electric" id="conn-status">Disconnected</span>
-                        </div>
-                        <div class="flex gap-2">
-                            <input type="text" id="room-code-input" placeholder="Host generates code..." class="flex-1 bg-void border border-steel p-2 rounded font-mono text-sm outline-none">
-                            <button onclick="Lobby.hostRoom()" class="px-3 bg-obsidian border border-steel hover:bg-steel rounded text-xs transition-colors">HOST</button>
-                            <button onclick="Lobby.joinRoom()" class="px-3 bg-electric text-void font-bold rounded shadow hover:bg-amber transition-colors">JOIN</button>
-                        </div>
-
-                        <div class="flex-1 bg-charcoal rounded border border-steel p-3 mt-2 flex flex-col">
-                            <div class="text-xs text-ash border-b border-steel pb-1 mb-2">LOBBY CHAT</div>
-                            <div id="lobby-log" class="flex-1 overflow-y-auto text-xs font-mono flex flex-col gap-1 text-ash"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <button id="btn-launch-match" onclick="Lobby.launchMatch()" disabled class="w-full py-3 bg-steel text-ash font-bold font-display tracking-widest rounded opacity-50 cursor-not-allowed transition-all">LAUNCH MATCH</button>
-                <div class="text-center mt-[-10px]">
-                     <button onclick="Lobby.quickVsAI()" class="text-xs text-ash hover:text-electric transition-colors underline decoration-steel underline-offset-4">Quick Launch vs AI Bot</button>
-                </div>
-            </div>
+            <select id="b-group" aria-label="Group by"><option value="type">Group: type</option><option value="cmc">Group: mana value</option><option value="color">Group: colour</option><option value="none">No grouping</option></select>
+          </div>
         </div>
 
-        <!-- OVERLAYS & MODALS -->
+        <details class="b-stats" open id="b-stats-wrap">
+          <summary>Stats <span id="b-count" class="pill"></span> <span id="b-legal" class="pill"></span></summary>
+          <div class="stats-row">
+            <div><div class="muted small">Mana curve</div><div id="b-curve" class="curve" role="img"></div></div>
+            <div><div class="muted small">Colours</div><div id="b-pips" class="pips"></div></div>
+            <div><div class="muted small">Types</div><div id="b-types" class="types-mini"></div></div>
+            <div><div class="muted small">Avg MV</div><div id="b-avg" class="big-num">–</div><div class="muted small">Est. price</div><div id="b-price" class="big-num">–</div></div>
+          </div>
+        </details>
 
-        <!-- Floating Inspector -->
-        <div id="inspector" class="hidden absolute top-20 right-20 w-64 bg-obsidian border border-steel rounded shadow-2xl z-50 flex flex-col">
-            <div id="inspector-header" class="h-8 bg-charcoal border-b border-steel flex justify-between items-center px-2 cursor-move">
-                <span class="text-xs font-mono text-electric">INSPECTOR</span>
-                <button onclick="Inspector.togglePin()" class="text-ash hover:text-offwhite text-xs" id="inspector-pin">📌</button>
-            </div>
-            <div class="p-4 flex flex-col gap-3">
-                <img id="insp-img" src="" class="w-full rounded border border-steel drop-shadow-md">
-                
-                <div class="flex gap-2">
-                    <div class="flex-1 flex flex-col">
-                        <label class="text-[10px] text-ash">Power</label>
-                        <input type="text" id="insp-power" class="w-full bg-void border border-steel p-1 rounded text-center text-sm" onchange="Inspector.updatePT()">
-                    </div>
-                    <div class="flex-1 flex flex-col">
-                        <label class="text-[10px] text-ash">Toughness</label>
-                        <input type="text" id="insp-toughness" class="w-full bg-void border border-steel p-1 rounded text-center text-sm" onchange="Inspector.updatePT()">
-                    </div>
-                </div>
-                
-                <div class="flex flex-col gap-1">
-                    <label class="text-[10px] text-ash">Counters</label>
-                    <div class="flex items-center justify-between bg-void border border-steel rounded p-1">
-                        <button class="px-2 hover:text-electric" onclick="Inspector.modifyCounter(-1)">-</button>
-                        <span class="text-xs text-electric" id="insp-counters">0</span>
-                        <button class="px-2 hover:text-electric" onclick="Inspector.modifyCounter(1)">+</button>
-                    </div>
-                </div>
-                
-                <button onclick="Inspector.flipCard()" class="w-full py-1 bg-charcoal hover:bg-steel border border-steel rounded text-xs transition-colors">Flip DFC</button>
-            </div>
+        <div id="b-deck-body" class="b-deck-body"></div>
+
+        <div class="b-deck-foot">
+          <button class="btn" id="b-sample">Sample hand</button>
+          <button class="btn" id="b-playtest">Playtest</button>
+          <button class="btn" id="b-export">Export</button>
+          <button class="btn" id="b-dupe">Duplicate</button>
+          <button class="btn danger ghost" id="b-delete">Delete</button>
         </div>
+      </section>
+    </div>
+  </section>
 
-        <!-- Custom Context Menu -->
-        <div id="context-menu" class="hidden absolute bg-obsidian border border-steel rounded shadow-2xl z-[100] min-w-[200px] py-1 flex flex-col text-sm text-offwhite shadow-black/50">
-            <!-- Items injected via JS -->
+  <!-- ============ GAME TABLE ============ -->
+  <section id="view-game" class="view" aria-label="Game table">
+    <div class="game">
+      <!-- Game toolbar -->
+      <div class="g-toolbar" role="toolbar" aria-label="Game controls">
+        <div class="turn-box">
+          <span class="turn-label">Turn <b id="g-turn">1</b></span>
+          <span id="g-active" class="active-name"></span>
+          <span id="g-clock" class="clock" hidden></span>
         </div>
+        <ol class="phases" id="g-phases" aria-label="Phases"></ol>
+        <div class="row gap tb-actions">
+          <button class="btn small" id="g-next-phase" title="Next phase (N)">Next phase</button>
+          <button class="btn small primary" id="g-pass" title="Pass turn (E)">Pass turn</button>
+          <div class="dropdown">
+            <button class="btn small" id="g-tools-btn" aria-haspopup="menu">Tools ▾</button>
+          </div>
+          <div class="dropdown">
+            <button class="btn small" id="g-view-btn" aria-haspopup="menu" title="Board view">View ▾</button>
+          </div>
+          <button class="icon-btn" id="g-side-toggle" title="Toggle side panel" aria-label="Toggle side panel">☰</button>
+        </div>
+      </div>
 
-    </main>
+      <div class="g-main">
+        <div id="g-table" class="g-table view-focus" aria-label="Battlefields"></div>
+        <!-- Side panel -->
+        <aside class="g-side" id="g-side" aria-label="Game info">
+          <section class="side-sec collapsible" data-collapse-key="g-players">
+            <header class="panel-head"><h3>Players</h3><button class="collapse-btn" aria-label="Collapse"></button></header>
+            <div class="panel-body" id="g-players"></div>
+          </section>
+          <section class="side-sec collapsible" data-collapse-key="g-cmd" id="g-cmd-sec">
+            <header class="panel-head"><h3>Commander damage</h3><button class="collapse-btn" aria-label="Collapse"></button></header>
+            <div class="panel-body" id="g-cmd"></div>
+          </section>
+          <section class="side-sec collapsible" data-collapse-key="g-global">
+            <header class="panel-head"><h3>Table</h3><button class="collapse-btn" aria-label="Collapse"></button></header>
+            <div class="panel-body" id="g-global"></div>
+          </section>
+          <section class="side-sec collapsible" data-collapse-key="g-match" id="g-match-sec">
+            <header class="panel-head"><h3>Match</h3><button class="collapse-btn" aria-label="Collapse"></button></header>
+            <div class="panel-body" id="g-match"></div>
+          </section>
+          <section class="side-sec collapsible grow" data-collapse-key="g-log">
+            <header class="panel-head"><h3>Log &amp; chat</h3><button class="collapse-btn" aria-label="Collapse"></button></header>
+            <div class="panel-body log-body">
+              <div class="log-filter seg small" role="group" aria-label="Log filter">
+                <button class="seg-btn active" data-logf="all">All</button><button class="seg-btn" data-logf="chat">Chat</button><button class="seg-btn" data-logf="game">Game</button>
+              </div>
+              <ol id="g-log" class="log" aria-live="polite" aria-label="Game log"></ol>
+              <form id="g-chat-form" class="chat-form"><input id="g-chat" placeholder="Say something…" autocomplete="off" aria-label="Chat message"><button class="btn small">Send</button></form>
+            </div>
+          </section>
+        </aside>
+      </div>
 
-<script>
-/**
- * VOID TABLETOP - CORE ARCHITECTURE
- * Highly compressed vanilla JS to meet single-file constraints while retaining full functionality.
- */
+      <!-- Hand dock -->
+      <div class="hand-dock" id="hand-dock">
+        <div class="hand-head">
+          <button class="icon-btn small" id="hand-collapse" title="Collapse hand" aria-label="Collapse hand">▾</button>
+          <span>Hand <b id="hand-count">0</b></span>
+          <div id="mull-bar" class="mull-bar" hidden>
+            <span id="mull-text"></span>
+            <button class="btn small primary" id="btn-keep">Keep</button>
+            <button class="btn small" id="btn-mull">Mulligan</button>
+          </div>
+          <div class="row gap hand-tools">
+            <button class="btn small ghost" id="hand-sort" title="Sort hand">Sort</button>
+            <button class="btn small ghost" id="hand-reveal" title="Reveal hand to everyone">Reveal</button>
+          </div>
+        </div>
+        <div class="hand zone" id="hand" data-zone="hand" aria-label="Your hand"></div>
+      </div>
+    </div>
+  </section>
+</main>
 
-// 1. STATE MANAGEMENT
-const State = {
-    currentTab: 'library',
-    decks: JSON.parse(localStorage.getItem('mtg_arena_deck_library_v1')) || [],
-    activeDeckId: null,
-    settings: {
-        life: 20, reduceMotion: false, audio: true, volume: 0.5
-    },
-    lobby: {
-        peer: null, conn: null, role: null, ready: false, oppReady: false
-    },
-    game: {
-        active: false, phase: 'main1', turn: 1,
-        players: {
-            p1: { life: 20, hand: [], board: [], grave: [], exile: [], library: [] },
-            p2: { life: 20, hand: [], board: [], grave: [], exile: [], library: [] } // Sync over network
-        }
-    }
-};
+<!-- ============ OVERLAYS ============ -->
+<div id="preview" class="preview" aria-hidden="true"><img alt=""><div class="preview-text"></div></div>
+<svg id="arrow-layer" class="arrow-layer" aria-hidden="true"></svg>
+<div id="drag-layer" class="drag-layer" aria-hidden="true"></div>
+<div id="menu-root"></div>
+<div id="modal-root"></div>
+<div id="toast-root" class="toasts" aria-live="polite"></div>
+<div id="sr-live" class="sr-only" aria-live="assertive"></div>
 
-// 2. SCRYFALL API HELPER (with caching)
-const Scry = {
-    cache: new Map(),
-    async fetch(url) {
-        if(this.cache.has(url)) return this.cache.get(url);
-        try {
-            const res = await fetch(url);
-            if(!res.ok) throw new Error('API Rate Limit or Error');
-            const data = await res.json();
-            this.cache.set(url, data);
-            return data;
-        } catch(e) { console.error(e); return null; }
-    },
-    async search(query) {
-        const data = await this.fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}`);
-        return data ? data.data : [];
-    },
-    async getCollection(identifiers) {
-        // identifiers = [{name: 'Black Lotus'}, ...]
-        try {
-            const res = await fetch('https://api.scryfall.com/cards/collection', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ identifiers })
-            });
-            const data = await res.json();
-            return data.data;
-        } catch(e) { return []; }
-    },
-    getImage(card) {
-        if(!card) return '';
-        if(card.image_uris) return card.image_uris.normal;
-        if(card.card_faces && card.card_faces[0].image_uris) return card.card_faces[0].image_uris.normal;
-        return '';
-    },
-    getBackImage(card) {
-        if(card.card_faces && card.card_faces[1].image_uris) return card.card_faces[1].image_uris.normal;
-        return '';
-    }
-};
-
-// 3. AUDIO SYSTEM (Web Audio API synthesis)
-const AudioSys = {
-    ctx: null,
-    init() { if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
-    playTone(freq, type, duration) {
-        if(!State.settings.audio) return;
-        this.init();
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-        gain.gain.setValueAtTime(State.settings.volume * 0.1, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(); osc.stop(this.ctx.currentTime + duration);
-    },
-    draw() { this.playTone(400, 'sine', 0.1); },
-    tap() { this.playTone(200, 'square', 0.05); },
-    phase() { this.playTone(600, 'triangle', 0.2); },
-    toggleMute() { 
-        State.settings.audio = !State.settings.audio; 
-        document.getElementById('audio-icon').innerText = State.settings.audio ? '🔊' : '🔇';
-    }
-};
-
-// 4. UI & NAVIGATION
-const UI = {
-    init() {
-        if(State.decks.length === 0) this.seedDecks();
-        this.switchTab('library');
-        Builder.init();
-        Lobby.init();
-        
-        // Global clicks for hiding contextual menus
-        document.addEventListener('click', (e) => {
-            if(!e.target.closest('#context-menu')) document.getElementById('context-menu').classList.add('hidden');
-        });
-    },
-    switchTab(tab) {
-        State.currentTab = tab;
-        ['tabletop', 'builder', 'library', 'lobby'].forEach(t => {
-            document.getElementById(`view-${t}`).classList.add('hidden');
-            document.getElementById(`tab-${t}`).classList.remove('text-electric', 'border-electric');
-            document.getElementById(`tab-${t}`).classList.add('border-transparent');
-        });
-        document.getElementById(`view-${tab}`).classList.remove('hidden');
-        document.getElementById(`tab-${tab}`).classList.add('text-electric', 'border-electric');
-        document.getElementById(`tab-${tab}`).classList.remove('border-transparent');
-        
-        if(tab === 'library') Library.render();
-    },
-    async seedDecks() {
-        // Preseed 1 simple deck for testing due to rate limits
-        const deck = {
-            id: Date.now(),
-            name: "Mono-Red Aggro",
-            format: "Standard",
-            cards: await Scry.getCollection([
-                {name: "Lightning Bolt"}, {name: "Goblin Guide"}, {name: "Monastery Swiftspear"}, {name: "Mountain"}
-            ]),
-            quantities: { "Lightning Bolt": 4, "Goblin Guide": 4, "Monastery Swiftspear": 4, "Mountain": 20 }
-        };
-        deck.cover = Scry.getImage(deck.cards[0]);
-        State.decks.push(deck);
-        this.saveDecks();
-        Library.render();
-    },
-    saveDecks() { localStorage.setItem('mtg_arena_deck_library_v1', JSON.stringify(State.decks)); },
-    showContextMenu(e, options) {
-        e.preventDefault();
-        const menu = document.getElementById('context-menu');
-        menu.innerHTML = '';
-        options.forEach(opt => {
-            if(opt === 'divider') {
-                menu.appendChild(Object.assign(document.createElement('div'), {className: 'h-px bg-steel my-1'}));
-            } else {
-                const btn = Object.assign(document.createElement('button'), {
-                    className: 'w-full text-left px-4 py-1.5 hover:bg-electric hover:text-void transition-colors',
-                    innerText: opt.label,
-                    onclick: () => { opt.action(); menu.classList.add('hidden'); }
-                });
-                menu.appendChild(btn);
-            }
-        });
-        menu.style.left = `${e.pageX}px`;
-        menu.style.top = `${e.pageY}px`;
-        menu.classList.remove('hidden');
-    }
-};
-
-// 5. DECK LIBRARY & BUILDER
-const Library = {
-    render() {
-        const grid = document.getElementById('library-grid');
-        grid.innerHTML = '';
-        State.decks.forEach(deck => {
-            const el = document.createElement('div');
-            el.className = 'bg-obsidian border border-steel rounded overflow-hidden shadow-lg group hover:border-electric transition-colors';
-            el.innerHTML = `
-                <div class="h-32 bg-cover bg-center" style="background-image: url('${deck.cover || ''}')"></div>
-                <div class="p-4">
-                    <h3 class="font-display font-bold text-lg text-electric truncate">${deck.name}</h3>
-                    <p class="text-xs text-ash mb-3">${deck.format} • ${Object.values(deck.quantities).reduce((a,b)=>a+b,0)} Cards</p>
-                    <div class="flex gap-2">
-                        <button class="flex-1 py-1 bg-charcoal hover:bg-steel border border-steel rounded text-xs" onclick="Builder.editDeck(${deck.id})">Edit</button>
-                        <button class="flex-1 py-1 bg-electric text-void font-bold rounded shadow hover:bg-amber transition-colors" onclick="Lobby.selectDeckAndGo(${deck.id})">Play</button>
-                    </div>
-                </div>
-            `;
-            grid.appendChild(el);
-        });
-    }
-};
-
-const Builder = {
-    activeDeck: null,
-    init() {
-        document.getElementById('card-search').addEventListener('keypress', async (e) => {
-            if(e.key === 'Enter') {
-                const results = await Scry.search(e.target.value);
-                this.renderSearch(results);
-            }
-        });
-    },
-    renderSearch(cards) {
-        const c = document.getElementById('search-results');
-        c.innerHTML = '';
-        cards.forEach(card => {
-            const img = document.createElement('img');
-            img.src = Scry.getImage(card);
-            img.className = 'w-full rounded cursor-pointer hover:ring-2 hover:ring-electric transition-all';
-            img.onclick = () => this.addCard(card);
-            img.oncontextmenu = (e) => UI.showContextMenu(e, [
-                {label: 'Add 1 Copy', action: () => this.addCard(card)},
-                {label: 'Add 4 Copies', action: () => { for(let i=0;i<4;i++) this.addCard(card); }}
-            ]);
-            c.appendChild(img);
-        });
-    },
-    editDeck(id) {
-        this.activeDeck = State.decks.find(d => d.id === id) || { id: Date.now(), name: "New Deck", cards: [], quantities: {} };
-        document.getElementById('deck-name-input').value = this.activeDeck.name;
-        this.renderDecklist();
-        UI.switchTab('builder');
-    },
-    addCard(card) {
-        if(!this.activeDeck) this.editDeck(null);
-        if(!this.activeDeck.cards.find(c => c.name === card.name)) this.activeDeck.cards.push(card);
-        this.activeDeck.quantities[card.name] = (this.activeDeck.quantities[card.name] || 0) + 1;
-        this.renderDecklist();
-    },
-    renderDecklist() {
-        const c = document.getElementById('decklist-main');
-        c.innerHTML = '';
-        let total = 0;
-        this.activeDeck.cards.forEach(card => {
-            const qty = this.activeDeck.quantities[card.name];
-            if(qty <= 0) return;
-            total += qty;
-            const el = document.createElement('div');
-            el.className = 'flex items-center gap-2 mb-1 p-1 hover:bg-charcoal rounded cursor-pointer group';
-            el.innerHTML = `
-                <span class="w-6 text-center text-xs font-mono text-electric">${qty}</span>
-                <span class="flex-1 text-sm truncate">${card.name}</span>
-                <span class="text-xs text-ash opacity-0 group-hover:opacity-100 transition-opacity">(${card.set.toUpperCase()})</span>
-            `;
-            el.oncontextmenu = (e) => UI.showContextMenu(e, [
-                {label: 'Add 1', action: () => this.addCard(card)},
-                {label: 'Remove 1', action: () => { this.activeDeck.quantities[card.name]--; this.renderDecklist(); }},
-                {label: 'Set as Cover', action: () => { this.activeDeck.cover = Scry.getImage(card); }}
-            ]);
-            c.appendChild(el);
-        });
-        document.getElementById('deck-stats').innerText = `${total} Cards`;
-    },
-    saveDeck() {
-        this.activeDeck.name = document.getElementById('deck-name-input').value;
-        if(!State.decks.find(d => d.id === this.activeDeck.id)) State.decks.push(this.activeDeck);
-        UI.saveDecks();
-        UI.switchTab('library');
-    }
-};
-
-// 6. LOBBY & MULTIPLAYER (PeerJS)
-const Lobby = {
-    init() {
-        const sel = document.getElementById('lobby-deck-select');
-        sel.innerHTML = '<option value="">-- Select Deck --</option>';
-        State.decks.forEach(d => {
-            sel.innerHTML += `<option value="${d.id}">${d.name}</option>`;
-        });
-    },
-    selectDeckAndGo(id) {
-        UI.switchTab('lobby');
-        document.getElementById('lobby-deck-select').value = id;
-    },
-    log(msg, sys=false) {
-        const l = document.getElementById('lobby-log');
-        l.innerHTML += `<div class="${sys ? 'text-electric' : 'text-offwhite'}">${msg}</div>`;
-        l.scrollTop = l.scrollHeight;
-    },
-    hostRoom() {
-        State.lobby.peer = new Peer();
-        State.lobby.role = 'host';
-        State.lobby.peer.on('open', id => {
-            document.getElementById('room-code-input').value = id;
-            document.getElementById('conn-status').innerText = "Waiting for player...";
-            this.log(`Room created. Share code: ${id}`, true);
-        });
-        State.lobby.peer.on('connection', conn => {
-            State.lobby.conn = conn;
-            this.setupConn(conn);
-            document.getElementById('conn-status').innerText = "Player connected!";
-            document.getElementById('conn-status').className = "text-xs text-green-400";
-        });
-    },
-    joinRoom() {
-        const id = document.getElementById('room-code-input').value;
-        if(!id) return;
-        State.lobby.peer = new Peer();
-        State.lobby.role = 'client';
-        State.lobby.peer.on('open', () => {
-            const conn = State.lobby.peer.connect(id);
-            State.lobby.conn = conn;
-            this.setupConn(conn);
-            conn.on('open', () => {
-                document.getElementById('conn-status').innerText = "Connected to Host!";
-                document.getElementById('conn-status').className = "text-xs text-green-400";
-                this.log(`Joined room: ${id}`, true);
-            });
-        });
-    },
-    setupConn(conn) {
-        conn.on('data', data => {
-            if(data.type === 'READY') {
-                State.lobby.oppReady = data.value;
-                this.log(`Opponent is ${data.value ? 'ready' : 'not ready'}`, true);
-                this.checkLaunch();
-            }
-            if(data.type === 'GAME_ACTION') Game.handleNetworkAction(data.action);
-        });
-    },
-    toggleReady() {
-        State.lobby.ready = !State.lobby.ready;
-        const knob = document.getElementById('ready-knob');
-        if(State.lobby.ready) {
-            knob.classList.add('translate-x-8', 'bg-electric');
-            knob.classList.remove('bg-steel');
-        } else {
-            knob.classList.remove('translate-x-8', 'bg-electric');
-            knob.classList.add('bg-steel');
-        }
-        
-        const deckId = document.getElementById('lobby-deck-select').value;
-        State.activeDeckId = deckId;
-        
-        if(State.lobby.conn) State.lobby.conn.send({type: 'READY', value: State.lobby.ready});
-        this.checkLaunch();
-    },
-    checkLaunch() {
-        const btn = document.getElementById('btn-launch-match');
-        if(State.lobby.ready && (State.lobby.oppReady || State.lobby.quickMode)) {
-            btn.disabled = false;
-            btn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-steel', 'text-ash');
-            btn.classList.add('bg-electric', 'text-void', 'hover:bg-amber');
-        } else {
-            btn.disabled = true;
-            btn.classList.add('opacity-50', 'cursor-not-allowed', 'bg-steel', 'text-ash');
-        }
-    },
-    quickVsAI() {
-        State.lobby.quickMode = true;
-        this.toggleReady();
-    },
-    launchMatch() {
-        Game.init();
-        UI.switchTab('tabletop');
-    }
-};
-
-// 7. DRAG AND DROP SYSTEM
-const DnD = {
-    draggedData: null,
-    start(e, cardId, sourceZone) {
-        e.dataTransfer.setData('text/plain', cardId);
-        e.dataTransfer.effectAllowed = 'move';
-        this.draggedData = { id: cardId, zone: sourceZone };
-        
-        // Hide default ghost and create custom if needed, but native is usually fine.
-        setTimeout(() => e.target.classList.add('opacity-50'), 0);
-    },
-    end(e) { e.target.classList.remove('opacity-50'); },
-    allowDrop(e) {
-        e.preventDefault();
-        e.currentTarget.classList.add('zone-drop-target');
-    },
-    drop(e, targetZone) {
-        e.preventDefault();
-        document.querySelectorAll('.zone-drop-target').forEach(el => el.classList.remove('zone-drop-target'));
-        const cardId = e.dataTransfer.getData('text/plain');
-        if(!cardId) return;
-        Game.moveCard(cardId, this.draggedData.zone, targetZone);
-    }
-};
-
-// 8. CORE GAME ENGINE (TABLETOP)
-const Game = {
-    init() {
-        State.game.active = true;
-        const deck = State.decks.find(d => d.id == State.activeDeckId);
-        if(!deck) return;
-
-        // Generate full instance array
-        let libraryInstances = [];
-        deck.cards.forEach(card => {
-            const qty = deck.quantities[card.name];
-            for(let i=0; i<qty; i++) {
-                libraryInstances.push({
-                    uuid: 'c_'+Math.random().toString(36).substr(2, 9),
-                    cardData: card,
-                    zone: 'library',
-                    tapped: false, counters: 0, overrideP: null, overrideT: null, notes: ''
-                });
-            }
-        });
-        
-        // Shuffle
-        libraryInstances = libraryInstances.sort(() => Math.random() - 0.5);
-        State.game.players.p1.library = libraryInstances;
-        State.game.players.p1.life = State.settings.life;
-        
-        document.getElementById('player-life').innerText = State.game.players.p1.life;
-        
-        // Draw 7
-        for(let i=0; i<7; i++) this.moveCard(State.game.players.p1.library[0].uuid, 'library', 'hand', false);
-        this.renderAll();
-    },
-
-    moveCard(uuid, fromZone, toZone, broadcast=true) {
-        const p1 = State.game.players.p1;
-        let cardObj = null;
-        let sourceArr = p1[fromZone];
-        let targetArr = p1[toZone];
-
-        // Find and remove
-        const idx = sourceArr.findIndex(c => c.uuid === uuid);
-        if(idx > -1) {
-            cardObj = sourceArr.splice(idx, 1)[0];
-        }
-
-        if(cardObj) {
-            // If moving to board, untap by default
-            if(toZone === 'board') cardObj.tapped = false;
-            cardObj.zone = toZone;
-            targetArr.push(cardObj);
-            
-            AudioSys.playTone(toZone==='board'? 300 : 400, 'sine', 0.1);
-            this.renderAll();
-            
-            if(broadcast && State.lobby.conn) {
-                State.lobby.conn.send({type: 'GAME_ACTION', action: {type: 'MOVE', uuid, fromZone, toZone}});
-            }
-        }
-    },
-    
-    updateLife(delta) {
-        State.game.players.p1.life += delta;
-        document.getElementById('player-life').innerText = State.game.players.p1.life;
-        if(State.lobby.conn) State.lobby.conn.send({type: 'GAME_ACTION', action: {type: 'LIFE', life: State.game.players.p1.life}});
-    },
-
-    drawCard() {
-        if(State.game.players.p1.library.length > 0) {
-            this.moveCard(State.game.players.p1.library[0].uuid, 'library', 'hand');
-            AudioSys.draw();
-        }
-    },
-
-    toggleTap(uuid) {
-        const c = State.game.players.p1.board.find(x => x.uuid === uuid);
-        if(c) {
-            c.tapped = !c.tapped;
-            AudioSys.tap();
-            this.renderAll();
-            if(State.lobby.conn) State.lobby.conn.send({type: 'GAME_ACTION', action: {type: 'TAP', uuid, tapped: c.tapped}});
-        }
-    },
-
-    nextPhase() {
-        const phases = ['untap','upkeep','draw','main1','combat','main2','end'];
-        const idx = phases.indexOf(State.game.phase);
-        State.game.phase = phases[(idx + 1) % phases.length];
-        
-        document.querySelectorAll('.hud-phase').forEach(el => el.classList.remove('active'));
-        document.querySelector(`.hud-phase[data-phase="${State.game.phase}"]`).classList.add('active');
-        
-        AudioSys.phase();
-    },
-
-    renderAll() {
-        const p1 = State.game.players.p1;
-        document.getElementById('deck-count').innerText = p1.library.length;
-        document.getElementById('grave-count').innerText = p1.grave.length;
-        
-        // Render Hand (Fanned out absolute positioning)
-        const handEl = document.getElementById('player-hand');
-        handEl.innerHTML = '';
-        p1.hand.forEach((inst, idx) => {
-            const rot = (idx - p1.hand.length/2) * 5;
-            const el = this.createCardDOM(inst, 'hand');
-            el.style.position = 'absolute';
-            el.style.transform = `translateX(${idx * 40 - (p1.hand.length*20)}px) rotate(${rot}deg) translateY(${Math.abs(rot)*2}px)`;
-            el.style.zIndex = 40 + idx;
-            handEl.appendChild(el);
-        });
-
-        // Render Board (Split lands vs nonlands)
-        const landsEl = document.getElementById('player-lands');
-        const nonLandsEl = document.getElementById('player-nonlands');
-        landsEl.innerHTML = ''; nonLandsEl.innerHTML = '';
-        
-        p1.board.forEach(inst => {
-            const el = this.createCardDOM(inst, 'board');
-            if(inst.cardData.type_line && inst.cardData.type_line.toLowerCase().includes('land')) {
-                landsEl.appendChild(el);
-            } else {
-                nonLandsEl.appendChild(el);
-            }
-        });
-    },
-
-    createCardDOM(inst, viewZone) {
-        const el = document.createElement('div');
-        el.className = `card-element cursor-grab relative ${inst.tapped ? 'tapped' : ''}`;
-        el.draggable = true;
-        el.ondragstart = (e) => DnD.start(e, inst.uuid, viewZone);
-        el.ondragend = (e) => DnD.end(e);
-        
-        // Base width
-        el.style.width = viewZone === 'hand' ? '120px' : '100px';
-        el.style.aspectRatio = '2.5 / 3.5';
-        el.style.backgroundImage = `url('${Scry.getImage(inst.cardData)}')`;
-        el.style.backgroundSize = 'cover';
-        el.style.borderRadius = '4.5%';
-        el.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.5)';
-
-        // Overlays (Counters, Notes)
-        if(inst.counters !== 0) {
-            const c = document.createElement('div');
-            c.className = 'absolute top-1 left-1 bg-amber text-void text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center';
-            c.innerText = inst.counters > 0 ? `+${inst.counters}` : inst.counters;
-            el.appendChild(c);
-        }
-
-        // Interactions
-        if(viewZone === 'board') {
-            el.onclick = () => this.toggleTap(inst.uuid);
-            el.oncontextmenu = (e) => {
-                UI.showContextMenu(e, [
-                    {label: inst.tapped ? 'Untap' : 'Tap', action: () => this.toggleTap(inst.uuid)},
-                    {label: 'Inspect / Edit', action: () => Inspector.open(inst)},
-                    {label: 'Add +1/+1', action: () => { inst.counters++; this.renderAll(); }},
-                    {label: 'Remove Counter', action: () => { inst.counters--; this.renderAll(); }},
-                    'divider',
-                    {label: 'To Graveyard', action: () => this.moveCard(inst.uuid, 'board', 'grave')},
-                    {label: 'To Hand', action: () => this.moveCard(inst.uuid, 'board', 'hand')}
-                ]);
-            };
-        }
-
-        return el;
-    },
-
-    handleNetworkAction(action) {
-        // Sync logic for when opponent does something
-        // In a full implementation, we reflect this in opp-board, opp-hand (hidden), etc.
-        console.log("Network Action Received:", action);
-    }
-};
-
-// 9. INSPECTOR MODAL
-const Inspector = {
-    activeInst: null,
-    isPinned: false,
-    el() { return document.getElementById('inspector'); },
-    
-    open(inst) {
-        this.activeInst = inst;
-        this.el().classList.remove('hidden');
-        document.getElementById('insp-img').src = Scry.getImage(inst.cardData);
-        document.getElementById('insp-power').value = inst.overrideP || '';
-        document.getElementById('insp-toughness').value = inst.overrideT || '';
-        document.getElementById('insp-counters').innerText = inst.counters;
-        
-        // Simple drag header
-        const header = document.getElementById('inspector-header');
-        header.onmousedown = (e) => {
-            let shiftX = e.clientX - this.el().getBoundingClientRect().left;
-            let shiftY = e.clientY - this.el().getBoundingClientRect().top;
-            const move = (ev) => {
-                this.el().style.left = ev.pageX - shiftX + 'px';
-                this.el().style.top = ev.pageY - shiftY + 'px';
-            };
-            document.addEventListener('mousemove', move);
-            document.onmouseup = () => { document.removeEventListener('mousemove', move); document.onmouseup = null; };
-        };
-    },
-    
-    togglePin() {
-        this.isPinned = !this.isPinned;
-        document.getElementById('inspector-pin').classList.toggle('text-electric');
-    },
-
-    modifyCounter(delta) {
-        if(!this.activeInst) return;
-        this.activeInst.counters += delta;
-        document.getElementById('insp-counters').innerText = this.activeInst.counters;
-        Game.renderAll();
-    },
-    
-    flipCard() {
-        if(!this.activeInst) return;
-        // Swap face logic if DFC (omitted complex logic for brevity, just swaps img source for demo)
-        const back = Scry.getBackImage(this.activeInst.cardData);
-        if(back) document.getElementById('insp-img').src = back;
-    }
-};
-
-// INITIALIZATION
-window.onload = () => UI.init();
-
-// KEYBOARD SHORTCUTS
-document.addEventListener('keydown', (e) => {
-    if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    if(e.code === 'Space') { e.preventDefault(); Game.nextPhase(); }
-    if(e.key.toLowerCase() === 'u' && State.game.active) {
-        State.game.players.p1.board.forEach(c => c.tapped = false);
-        Game.renderAll();
-    }
-    if(e.key.toLowerCase() === 'd' && State.game.active) Game.drawCard();
-});
-
-</script>
+<script src="js/util.js"></script>
+<script src="js/scryfall.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/decks.js"></script>
+<script src="js/builder.js"></script>
+<script src="js/net.js"></script>
+<script src="js/lobby.js"></script>
+<script src="js/game.js"></script>
+<script src="js/board.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
