@@ -64,6 +64,11 @@ const SETTINGS_SCHEMA = [
     { key: 'keyboardCards', label: 'Keyboard card focus', help: 'Tab through cards; Enter / Shift+F10 opens the card menu', type: 'toggle' },
     { key: 'longPressMenu', label: 'Long-press opens menu (touch)', type: 'toggle' },
   ] },
+  { sec: 'Network', items: [
+    { key: 'turnUrl', label: 'Relay (TURN) server URL', help: 'Only needed if friends get \u201ccouldn\u2019t connect to the host\u201d. Get free credentials from a TURN provider (e.g. metered.ca or Cloudflare Calls), paste them here, and have everyone in the room do the same. Example: turn:global.relay.metered.ca:443?transport=tcp', type: 'text' },
+    { key: 'turnUser', label: 'Relay username', type: 'text' },
+    { key: 'turnPass', label: 'Relay password', type: 'text' },
+  ] },
   { sec: 'Audio', items: [
     { key: 'sound', label: 'Sound effects', type: 'toggle' },
     { key: 'volume', label: 'Volume', type: 'range', min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
@@ -78,7 +83,7 @@ const SETTINGS_DEFAULTS = {
   arrowsClearOnTurn: true, arrowWidth: 7, cmdToZonePrompt: true, cmdDmgAffectsLife: true, logTimestamps: false,
   uiScale: 1, highContrast: false, legibleFont: false, bigText: false, reduceMotion: false, colorblind: false,
   arrowColor: '#ff2a2a', srAnnounce: false, keyboardCards: false, longPressMenu: true,
-  sound: true, volume: .6, chatSound: true,
+  sound: true, volume: .6, chatSound: true, turnUrl: '', turnUser: '', turnPass: '',
 };
 
 const SHORTCUTS = [
@@ -174,7 +179,7 @@ const Settings = {
         ctrl = h('input', { type: 'color', id, value: val });
         ctrl.oninput = () => this.set(it.key, ctrl.value);
       } else {
-        ctrl = h('input', { id, value: val, placeholder: 'https://…', style: { width: '220px' } });
+        ctrl = h('input', { id, value: val, placeholder: it.key.startsWith('turn') ? '' : 'https://\u2026', type: it.key === 'turnPass' ? 'password' : 'text', style: { width: '220px' } });
         ctrl.onchange = () => this.set(it.key, ctrl.value.trim());
       }
       wrap.append(h('div.set-row', null, h('label', { for: id }, it.label, it.help ? h('small', null, it.help) : null), ctrl));

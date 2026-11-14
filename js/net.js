@@ -11,12 +11,21 @@ const Net = {
   on(type, fn) { (this.handlers[type] ||= []).push(fn); },
   emit(type, msg) { (this.handlers[type] || []).forEach(fn => { try { fn(msg); } catch (e) { console.error(e); } }); },
 
+  /** STUN finds a direct route; an optional TURN relay (Settings → Network) covers networks that block direct connections. */
+  iceServers() {
+    const list = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }, { urls: 'stun:global.stun.twilio.com:3478' }];
+    const url = (Settings.get('turnUrl') || '').trim();
+    if (url) list.push({ urls: url.split(/[\s,]+/).filter(Boolean), username: Settings.get('turnUser') || undefined, credential: Settings.get('turnPass') || undefined });
+    return list;
+  },
+
   setStatus(text, cls = '') { const el = $('#net-status'); el.textContent = text; el.className = 'net-status ' + cls; },
 
   _newPeer(id) {
     return new Promise((resolve, reject) => {
       if (typeof Peer === 'undefined') { reject(new Error('Networking library failed to load — check your connection.')); return; }
-      const p = id ? new Peer(id, { debug: 1 }) : new Peer({ debug: 1 });
+      const opts = { debug: 1, config: { iceServers: this.iceServers() } };
+      const p = id ? new Peer(id, opts) : new Peer(opts);
       const fail = err => { p.destroy(); reject(err); };
       p.once('open', () => { p.off('error', fail); resolve(p); });
       p.once('error', fail);
@@ -50,9 +59,14 @@ const Net = {
     this._watchPeer();
     return new Promise((resolve, reject) => {
       const conn = this.peer.connect(this.PREFIX + code, { reliable: true, serialization: 'json' });
-      const timer = setTimeout(() => { reject(new Error('Room not found or host unreachable.')); this.leave(true); }, 12000);
-      this.peer.once('error', e => { clearTimeout(timer); reject(e.type === 'peer-unavailable' ? new Error(`No room with code ${code}.`) : e); this.setStatus('Offline'); });
+      const blocked = 'Found the room, but couldn\u2019t connect to the host. One of your networks (often school/work Wi-Fi) is blocking direct connections. Try another network, or add a relay in Settings \u2192 Network.';
+      let reached = false, done = false;
+      const fail = msg => { if (done) return; done = true; clearTimeout(timer); reject(new Error(msg)); this.leave(true); };
+      const timer = setTimeout(() => fail(reached ? blocked : 'Couldn\u2019t reach the host. Check the code and make sure the host still has the page open.'), 20000);
+      this.peer.once('error', e => fail(e.type === 'peer-unavailable' ? `No room with code ${code}. Check the code, and make sure the host still has the page open (rooms close when the host leaves or reloads).` : (e.message || 'Connection error')));
+      conn.on('iceStateChanged', st => { reached = true; if (st === 'failed') fail(blocked); });
       conn.on('open', () => {
+        if (done) return; done = true;
         clearTimeout(timer); this.hostConn = conn; this.online = true;
         this.setStatus('In room ' + code, 'on');
         conn.on('data', msg => this._recv(msg, conn));
